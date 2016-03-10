@@ -94,7 +94,7 @@ class Quasar(Protocol):
                 rdef.callback((resp.statusCode, (rv,)))
             elif resp.which() == 'changedRngList':
                 allvalues = [record for record in response.changedRngList.values for response in sofar]
-                rdef.callback((resp.statusCode, (resp.changedRngList.values,)))
+                rdef.callback((resp.statusCode, (allvalues,)))
             elif resp.which() == 'void':
                 rdef.callback((resp.statusCode, ()))
             else:
