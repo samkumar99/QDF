@@ -82,10 +82,10 @@ class Quasar(Protocol):
             rdef = self.defmap[resp.echoTag]
 
             if resp.which() == 'records':
-                allvalues = reduce(operator.add, (list(response.records) for response in sofar))
+                allvalues = reduce(operator.add, (list(response.records.values) for response in sofar))
                 rdef.callback((resp.statusCode, (resp.records.version, allvalues)))
             elif resp.which() == 'statisticalRecords':
-                allvalues = reduce(operator.add, (list(response.statisticalRecords) for response in sofar))
+                allvalues = reduce(operator.add, (list(response.statisticalRecords.values) for response in sofar))
                 rdef.callback((resp.statusCode, (resp.StatisticalRecords.version, allvalues)))
             elif resp.which() == 'versionList':
                 rv = {}
