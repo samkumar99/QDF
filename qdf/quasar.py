@@ -35,6 +35,7 @@ class Quasar(Protocol):
         self.gothdr = False
         self.numsegs = 0
         self.hdrptr = 0
+        self.partmsg = {}
 
     def _normalizeUUID(self, u):
         if len(u) == 36:
@@ -61,29 +62,46 @@ class Quasar(Protocol):
 
     def _processSegment(self, data):
         resp = quasar_cpnp.Response.from_bytes(data, traversal_limit_in_words = 100000000, nesting_limit=1000)
-        if not resp.echoTag in self.defmap:
+        et = resp.echoTag
+        if et not in self.defmap:
             print "[E] bad echo tag"
             return
-        rdef = self.defmap[resp.echoTag]
-
-        if resp.which() == 'records':
-            recs = resp.records
-            rdef.callback((resp.statusCode, (recs.version, recs.values)))
-        elif resp.which() == 'statisticalRecords':
-            recs = resp.statisticalRecords
-            rdef.callback((resp.statusCode, (recs.version, recs.values)))
-        elif resp.which() == 'versionList':
-            rv = {}
-            for idx, uid in enumerate(resp.versionList.uuids):
-                rv[uid] = resp.versionList.versions[idx]
-            rdef.callback((resp.statusCode, (rv,)))
-        elif resp.which() == 'changedRngList':
-            rdef.callback((resp.statusCode, (resp.changedRngList.values,)))
-        elif resp.which() == 'void':
-            rdef.callback((resp.statusCode, ()))
+            
+        if et in self.partmsg:
+            sofar = self.partmsg[et]
+            new = False
         else:
-            print "No idea what type of response this is: ", resp.which()
-            raise Exception("bad response")
+            sofar = []
+            new = True
+        sofar.append(resp)
+        
+        if resp.final:
+            if not new:
+                del self.partmsg[et]
+            rdef = self.defmap[resp.echoTag]
+
+            if resp.which() == 'records':
+                allvalues = [record for record in response.records for response in sofar]
+                rdef.callback((resp.statusCode, (resp.records.version, allvalues)))
+            elif resp.which() == 'statisticalRecords':
+                allvalues = [record for record in response.statisticalRecords for response in sofar]
+                rdef.callback((resp.statusCode, (resp.StatisticalRecords.version, allvalues)))
+            elif resp.which() == 'versionList':
+                rv = {}
+                for response in sofar:
+                    for idx, uid in enumerate(response.versionList.uuids):
+                        rv[uid] = response.versionList.versions[idx]
+                rdef.callback((resp.statusCode, (rv,)))
+            elif resp.which() == 'changedRngList':
+                allvalues = [record for record in response.changedRngList.values for response in sofar]
+                rdef.callback((resp.statusCode, (resp.changedRngList.values,)))
+            elif resp.which() == 'void':
+                rdef.callback((resp.statusCode, ()))
+            else:
+                print "No idea what type of response this is: ", resp.which()
+                raise Exception("bad response")
+        elif new:
+            self.partmsg[et] = sofar
 
     def dataReceived(self, data):
         self.have += data
